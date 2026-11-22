@@ -84,7 +84,7 @@
         if (m1[i].t > lastT && (i < m1.length - 1 || now - m1[i].t > 900)) todo.push({ sym, bar: m1[i] });
       }
       m1All[sym] = m1;
-      const last = m1[m1.length - 1];
+      const last = m1[m1.length - 1] || H[H.length - 1]; // weekend: fall back to the last 5-min candle
       feed[sym] = last ? { state: now - last.t < 240 ? 'live' : now - last.t < 1500 ? 'delayed' : 'closed', price: last.c, lastBar: last.t } : { state: 'closed' };
     }
     todo.sort((a, b) => a.bar.t - b.bar.t);
