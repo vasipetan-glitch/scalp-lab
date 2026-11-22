@@ -1,0 +1,4 @@
+# PC-only demo account, cache and reports (the cloud account lives in cloud/)
+data/
+# Built by the cloud runner for GitHub Pages
+site/

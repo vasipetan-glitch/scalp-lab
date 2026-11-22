@@ -1,0 +1,9 @@
+{
+  "mode": "auto",
+  "riskPct": 1,
+  "dailyLossPct": 5,
+  "maxTradesPerDay": 12,
+  "maxHoldMin": 0,
+  "newsFilter": true,
+  "paused": false
+}

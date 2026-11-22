@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scalp Lab — Demo</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">◆</span> Scalp Lab <span class="badge">DEMO · paper money</span></div>
+    <div class="status" id="status"></div>
+    <div class="top-actions">
+      <button id="btnNotify" class="btn ghost" title="Desktop alerts when a trade opens or closes">🔔 Alerts off</button>
+      <button id="btnPause" class="btn">Pause trading</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <main class="grid">
+    <section class="card chart-card">
+      <div class="card-head">
+        <div class="seg" id="symTabs"></div>
+        <div class="seg small" id="tfTabs">
+          <button data-tf="1m">1m</button><button data-tf="5m" class="on">5m</button>
+        </div>
+      </div>
+      <div id="chart" class="chart"></div>
+      <div class="chart-legend" id="chartLegend"></div>
+    </section>
+    <aside class="side">
+      <section class="card">
+        <div class="card-head"><h2>Open positions</h2><span class="muted" id="openCount"></span></div>
+        <div id="positions" class="table-wrap"></div>
+      </section>
+      <section class="card grow">
+        <div class="card-head"><h2>Live activity</h2><span class="muted small">newest first</span></div>
+        <div id="feed" class="feed"></div>
+      </section>
+    </aside>
+  </main>
+
+  <nav class="pagetabs" id="pageTabs">
+    <button data-page="trades" class="on">Trade history</button>
+    <button data-page="report">Report</button>
+    <button data-page="lab">Strategy Lab</button>
+    <button data-page="research">Research</button>
+    <button data-page="settings">Settings</button>
+  </nav>
+
+  <section class="page card" id="page-trades">
+    <div class="card-head">
+      <h2>Trade history</h2>
+      <div class="filters">
+        <select id="fSym"><option value="">All markets</option></select>
+        <select id="fStrat"><option value="">All strategies</option></select>
+        <select id="fRes"><option value="">All results</option><option value="win">Wins</option><option value="loss">Losses</option></select>
+        <a class="btn ghost" id="btnCsv" download="scalp-lab-trades.csv">Export CSV</a>
+      </div>
+    </div>
+    <div id="tradesTable" class="table-wrap"></div>
+  </section>
+
+  <section class="page card" id="page-report" hidden>
+    <div class="card-head"><h2>Report</h2><span class="muted small" id="reportNote"></span></div>
+    <div id="reportBody"></div>
+    <h3>Balance after each closed trade</h3>
+    <div id="equityChart" class="chart small"></div>
+  </section>
+
+  <section class="page card" id="page-lab" hidden>
+    <div class="card-head"><h2>Strategy Lab — backtest on recent history (5-min candles, with spreads)</h2>
+      <button class="btn ghost" id="btnRerun">Re-run backtest</button></div>
+    <div id="labBody"><p class="muted">Loading market history…</p></div>
+  </section>
+
+  <section class="page card prose" id="page-research" hidden>
+    <h2>What the research says (checked November 2026)</h2>
+
+    <h3>1. Reality check first</h3>
+    <ul>
+      <li>EU brokers must publish how many retail clients lose money on CFDs. ESMA's standard range is <b>74–89%</b>; current broker disclosures are roughly 51–82%.</li>
+      <li>A Brazilian study of futures day traders who kept going 300+ days found <b>97% lost money</b> (Chague, De-Losso &amp; Giovannetti).</li>
+      <li>So: a <b>high win rate means nothing on its own</b>. 40% wins with 1:2 RRR makes money; 70% wins with 1:0.3 loses. For trades of a few minutes, the <b>spread</b> is the biggest enemy — this demo charges a realistic spread on every trade.</li>
+    </ul>
+
+    <h3>2. Strategies with real evidence (and what is in this app)</h3>
+    <ul>
+      <li><b>Opening Range Breakout on the Nasdaq</b> — Zarattini &amp; Aziz (2023) found strong results for a 5-minute ORB on QQQ (2016–2023), but their test assumed no spread or slippage; an independent replication on index CFDs found results near zero after costs. → <i>NY ORB</i> (NAS100, gold).</li>
+      <li><b>Intraday momentum</b> — Gao, Han, Li &amp; Zhou (Journal of Financial Economics, 2018): the market's first half hour predicts its last half hour; a simple timing rule earned ~6–7% a year on the S&amp;P 500 ETF. → <i>Intraday Momentum</i> (NAS100, 15:30–16:00 New York).</li>
+      <li><b>London breakout</b> — popular, but the high win rates (58–65%) quoted online come from vendors with no visible method; one transparent 10-year EUR/USD test lost money (36% wins, profit factor 0.87). → <i>London BO</i> (EUR/USD, gold), only traded if it passes the test.</li>
+      <li><b>Intraday momentum with a "noise area"</b> — Zarattini, Aziz &amp; Barbon (2024) trade only when price leaves its normal intraday range around the open, and found it worked on the S&amp;P 500 ETF. Works all day. → <i>Noise Mom.</i> (all 3 markets).</li>
+      <li><b>Liquidity sweep reversal</b> and <b>volatility squeeze breakout</b> — price-structure ideas used by many discretionary traders (stop hunts beyond yesterday's high/low; quiet markets breaking out). No strong academic proof, so they must earn their place in the backtest.</li>
+      <li><b>Trend pullback</b> and <b>Bollinger mean reversion</b> — classic textbook rules without strong academic proof. Included so they can be measured, not because they are proven.</li>
+    </ul>
+    <p><b>News filter:</b> big scheduled news (US inflation, jobs report, Fed decisions, GDP…) makes prices jump in seconds, stops get skipped, and spreads widen. The app takes no new trades from 30 minutes before to 15 minutes after high-impact US news (plus euro news for EUR/USD), using the free Forex Factory calendar.</p>
+    <p><b>Time rule:</b> trades run until TP or SL; whatever is still open at 16:55 New York (end of the trading day) is closed. Removing the old 60-minute limit changed the results a lot — the London breakout went from losing to the best strategy, because many of its winners needed a few hours.</p>
+
+    <h3>3. How the app chooses</h3>
+    <p>Every strategy × market is backtested on the last 2–3 months of 5-minute data (what Yahoo provides) with spreads. Every chart is handled <b>on its own</b>: each strategy is tried in several settings versions on that chart, the best version is chosen on the first two-thirds of the history (<i>training</i>), and it must then also make money on the last third, which it was never tuned on (<i>unseen test</i>), with at least 15 trades in total. In <b>Auto</b> mode each chart trades only its own best passing strategies (up to 2), with the settings that worked on that chart. Results are re-checked every time you open the app. Backtests are always more optimistic than live trading — the live demo is the real test.</p>
+
+    <h3>4. Copying "the best traders"</h3>
+    <ul>
+      <li><b>Legal?</b> Yes in the EU, when done through a regulated (MiFID) firm. ESMA treats copy trading as portfolio management or investment advice (Supervisory Briefing on copy trading, 2023), so the platform needs the right licence. Always check the firm on the regulator's register (e.g. ASF in Romania, CySEC, FCA).</li>
+      <li><b>Where:</b> eToro CopyTrader (its public API added investor rankings and copy endpoints in 2026), MetaTrader 4/5 Signals (MQL5), cTrader Copy (via brokers such as Pepperstone or IC Markets), ZuluTrade, Darwinex (FCA/CNMV, risk-scored "DARWINs").</li>
+      <li><b>Careful:</b> leaderboards show the survivors. Traders who blow up close the account and disappear; leaders often profit more than the people copying them (lag, spread, different account size). Martingale/grid systems show a beautiful smooth curve right until they crash.</li>
+      <li><b>How to vet a trader:</b> at least 12 months of <i>real-money</i> history, max drawdown under ~20–25%, trade size that does not grow after losses (no martingale), sensible leverage, and copiers who stay for months.</li>
+      <li>I did <b>not</b> pick specific people to copy: I'm not a licensed financial advisor, and a leaderboard rank alone is not a good reason to trust someone. The demo can't copy them anyway without an account and API access on that platform.</li>
+    </ul>
+
+    <h3>5. Market data used</h3>
+    <p>Free Yahoo Finance data. EUR/USD is spot FX. Gold uses COMEX gold futures (GC=F) and NAS100 uses E-mini Nasdaq-100 futures (NQ=F) as stand-ins — they move almost the same as broker CFD prices but the price level differs a little, and exchange data may be slightly delayed. That's fine for a demo because entries and exits are simulated on the same feed.</p>
+
+    <h3>Sources</h3>
+    <ul class="sources">
+      <li><a href="https://papers.ssrn.com/abstract=4416622" target="_blank" rel="noopener">Zarattini &amp; Aziz — Can Day Trading Really Be Profitable? (SSRN)</a></li>
+      <li><a href="https://www.cxoadvisory.com/technical-trading/day-trading-with-an-opening-range-breakout-strategy" target="_blank" rel="noopener">CXO Advisory — ORB strategy review (assumptions)</a></li>
+      <li><a href="https://www.mql5.com/en/blogs/post/776235" target="_blank" rel="noopener">MQL5 blog — ORB replicated on five indices: gross reproduced, net zero</a></li>
+      <li><a href="https://econpapers.repec.org/RePEc:eee:jfinec:v:129:y:2018:i:2:p:394-414" target="_blank" rel="noopener">Gao, Han, Li &amp; Zhou — Market Intraday Momentum (JFE 2018)</a></li>
+      <li><a href="https://backtrex.com/en/backtests/london-breakout-eur-usd" target="_blank" rel="noopener">Backtrex — London breakout on EUR/USD backtest</a></li>
+      <li><a href="https://ideas.repec.org/p/fgv/eesptd/525.html" target="_blank" rel="noopener">Chague, De-Losso &amp; Giovannetti — Day Trading for a Living?</a></li>
+      <li><a href="https://brokerrank.net/research/retail-loss-rates" target="_blank" rel="noopener">BrokerRank — retail CFD loss rates across EU/UK brokers</a></li>
+      <li><a href="https://www.esma.europa.eu/sites/default/files/2023-03/ESMA35-42-1428_Supervisory_Briefing_on_Copy_Trading.pdf" target="_blank" rel="noopener">ESMA — Supervisory Briefing on Copy Trading (2023)</a></li>
+      <li><a href="https://api-portal.etoro.com/changelog" target="_blank" rel="noopener">eToro API portal — changelog (rankings &amp; copy endpoints)</a></li>
+      <li><a href="https://www.metatrader5.com/en/terminal/help/signals/signal_subscriber" target="_blank" rel="noopener">MetaTrader 5 — how signal copying works</a></li>
+      <li><a href="https://www.darwinex.com/" target="_blank" rel="noopener">Darwinex — DARWIN investing</a></li>
+      <li><a href="https://247wallst.com/investing/2026/08/13/50-of-retail-investors-copy-famous-traders-heres-why-thats-a-terrible-strategy/" target="_blank" rel="noopener">24/7 Wall St — why copying famous traders often disappoints</a></li>
+    </ul>
+  </section>
+
+  <section class="page card" id="page-settings" hidden>
+    <div class="card-head"><h2>Settings</h2></div>
+    <div id="settingsBody"></div>
+  </section>
+
+  <footer>Demo only — simulated trades with virtual money, no broker connection. Not financial advice. Past or simulated results do not guarantee future results.</footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/indicators.js"></script>
+  <script src="js/strategies.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/selection.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+name: Scalp Lab demo (cloud)
+
+on:
+  schedule:
+    - cron: '3-59/10 * * * *'   # about every 10 minutes (GitHub can start a run a few minutes late)
+  workflow_dispatch: {}          # adds a "Run workflow" button for a manual run
+
+permissions:
+  contents: write   # save the demo account (cloud/state.json)
+  pages: write      # publish the dashboard
+  id-token: write
+
+concurrency:
+  group: scalp-lab
+  cancel-in-progress: false
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run the demo trading engine
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: node runner/run.mjs
+
+      - name: Save the demo account
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cloud
+          if git diff --cached --quiet; then
+            echo "Nothing new to save"
+          else
+            git commit -m "demo account update"
+            git pull --rebase --autostash || true
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
