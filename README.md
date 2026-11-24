@@ -33,10 +33,11 @@ To keep it running while the PC is off, use the cloud version (below).
 ## Strategies and the backtest
 
 Every chart is treated **on its own**. For each chart, each of the 8 strategies is tried in several settings
-versions (take-profit distance, opening-range length, …) on the last 2–3 months of 5-minute candles, spreads
-included:
+versions (take-profit distance, a **break-even stop** that moves the stop to +0.1R after +1R, opening-range
+length, skipping the quiet midday, …) on the last 2–3 months of 5-minute candles, spreads included:
 
-1. **Training** (first 2/3 of the history): the best settings version is chosen.
+1. **Training** (first 2/3 of the history): among the versions that made money, the one with the **highest win
+   rate** that still keeps at least 85% of the best profit is chosen.
 2. **Unseen test** (last 1/3): that version must also make money on data it was not tuned on.
 3. Overall it needs at least 15 trades and must be profitable after costs.
 
@@ -47,17 +48,24 @@ Strategies: NY Opening Range Breakout · London Breakout (Asian range) · Intrad
 · Liquidity Sweep Reversal (all day) · Volatility Squeeze Breakout (all day) · Intraday Momentum (last 30 min)
 · Trend Pullback (EMA 20/50/200) · Bollinger Mean Reversion. Descriptions are in the Strategy Lab tab.
 
-Per-chart picks on 22 Nov 2026 (74 backtests):
+Per-chart picks on 24 Nov 2026 (129 backtests; the current picks are always in the Strategy Lab tab):
 
-| Chart | Strategy (tuned settings) | Trades | Win rate | Avg result | Profit factor | Training | Unseen test |
-|---|---|---|---|---|---|---|---|
-| EUR/USD | London Breakout (RR 2) | 36 | 53% | +0.41R | 1.85 | +11.8R | +3.0R |
-| XAU/USD | NY Opening Range Breakout (5-min range, RR 2) | 38 | 45% | +0.34R | 1.60 | +5.0R | +8.0R |
-| XAU/USD | London Breakout (RR 1.5) | 17 | 53% | +0.26R | 1.53 | +1.8R | +2.5R |
-| NAS100 | Intraday Momentum – noise area (RR 3) | 36 | 33% | +0.28R | 1.43 | +4.9R | +5.2R |
-| NAS100 | Trend Pullback (RR 3) | 71 | 39% | +0.20R | 1.34 | +4.7R | +9.5R |
+| Chart | Strategies (tuned settings) |
+|---|---|
+| EUR/USD | London Breakout (RR 2 · BE) + Intraday Momentum – noise area (RR 3 · BE) |
+| XAU/USD | London Breakout (RR 1.5) + NY Opening Range Breakout (15-min range · RR 3 · BE) |
+| NAS100 | NY Opening Range Breakout (15-min range · RR 3 · BE) + Trend Pullback (RR 3 · BE) |
 
-All charts together: $100 → $158.61 over ~11 weeks (180 trades, 44% win rate, max drawdown 8%).
+Same data, old way vs new way (break-even versions + win-rate-aware choice):
+
+| | Old way | New way |
+|---|---|---|
+| Win rate | 39.5% | **51.6%** |
+| $100 becomes | $147.51 | **$164.86** |
+| Profit factor | 1.23 | **1.54** |
+| Max drawdown | 15.2% | **12.8%** |
+| Unseen part only | 39.5% wins, PF 1.29 | **51.7% wins, PF 1.63** |
+
 Because only strategies that also did well on the unseen part were kept, even that part is a bit flattering —
 the live demo is the real test.
 
