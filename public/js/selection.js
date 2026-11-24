@@ -38,16 +38,21 @@
     for (const sym of syms) {
       for (const strat of SL.STRATEGIES.filter((s) => s.symbols.includes(sym))) {
         const variants = strat.variants && strat.variants.length ? strat.variants : [{ p: {}, label: '' }];
-        let best = null;
+        const results = [];
         for (const v of variants) {
           const act = [{ strat: strat.id, p: v.p, label: v.label }];
           const tr = SL.runBacktest({ [sym]: H[sym] }, (s) => (s === sym ? act : []), { news: opts.news, settings: opts.settings }).closed;
           tested++;
-          const c = { sym, strat: strat.id, p: v.p, label: v.label, all: stats(tr), early: stats(tr.filter((t) => t.openT < split)), late: stats(tr.filter((t) => t.openT >= split)) };
-          // The version is picked on the training part only; the unseen part is not looked at here
-          const fit = (x) => (x.early.n >= 5 ? x.early.totalR : -1e9 + x.early.totalR);
-          if (!best || fit(c) > fit(best)) best = c;
+          results.push({ sym, strat: strat.id, p: v.p, label: v.label, all: stats(tr), early: stats(tr.filter((t) => t.openT < split)), late: stats(tr.filter((t) => t.openT >= split)) });
         }
+        // The version is picked on the training part only (the unseen part is not looked at here): among the
+        // versions that made money, the highest win rate that still keeps at least 85% of the best profit
+        const good = results.filter((c) => c.early.n >= 5 && c.early.totalR > 0);
+        let best;
+        if (good.length) {
+          const top = Math.max(...good.map((c) => c.early.totalR));
+          best = good.filter((c) => c.early.totalR >= 0.85 * top).sort((a, b) => b.early.winRate - a.early.winRate || b.early.totalR - a.early.totalR)[0];
+        } else best = results.slice().sort((a, b) => b.early.totalR - a.early.totalR)[0];
         const { all, early, late } = best;
         let selected = false, reason;
         if (all.n < 15) reason = `too few trades (${all.n})`;

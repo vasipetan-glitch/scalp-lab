@@ -96,7 +96,7 @@
         try { sig = strat.evaluate(ctx); } catch (e) { console.error(strat.id, e); }
         if (!sig || !(sig.slDist > 0) || !(sig.tpDist > 0)) continue;
         const pr = a.pr || 0;
-        if (pr > bestPr) { bestPr = pr; best = { ...sig, strat: strat.id, variant: a.label || '', maxHoldMin: strat.maxHoldMin || 0, sigT: b.t + 300 }; }
+        if (pr > bestPr) { bestPr = pr; best = { ...sig, strat: strat.id, variant: a.label || '', be: (a.p && a.p.be) || 0, maxHoldMin: strat.maxHoldMin || 0, sigT: b.t + 300 }; }
       }
       if (best) this.st.pending[sym] = best;
     }
@@ -159,7 +159,8 @@
       const hold = caps.length ? Math.min(...caps) : 0; // 0 = no time limit
       const pos = {
         id: st.nextId++, sym, strat: sig.strat, variant: sig.variant || '', side, openT: t, entry,
-        sl: entry - side * sig.slDist, tp: entry + side * sig.tpDist,
+        sl: entry - side * sig.slDist, sl0: entry - side * sig.slDist, tp: entry + side * sig.tpDist,
+        be: sig.be || 0, beMoved: false, // break-even stop: after be x R in profit, the stop moves to +0.1R
         slDist: sig.slDist, tpDist: sig.tpDist, rr: sig.tpDist / sig.slDist,
         units, lots, belowMinLot: lots < inst.minLot, risk, margin,
         maxHoldMin: hold, note: sig.note,
@@ -198,7 +199,17 @@
         if (exit == null && p.maxHoldMin > 0 && bar.t + base - p.openT >= p.maxHoldMin * 60) {
           exit = bar.c - p.side * half; reason = 'TIME'; ct = bar.t + base;
         }
-        if (exit != null) this._close(p, exit, ct, reason);
+        if (exit != null) {
+          if (reason === 'SL' && p.beMoved) reason = 'BE';
+          this._close(p, exit, ct, reason);
+          continue;
+        }
+        // Break-even stop: once a finished candle has reached be x R of profit, lock +0.1R from the next candle on
+        // (checked after the exits above, so within one candle the original stop always counts first)
+        if (p.be > 0 && !p.beMoved && (p.side > 0 ? hi >= p.entry + p.be * p.slDist : lo <= p.entry - p.be * p.slDist)) {
+          p.sl = p.entry + p.side * 0.1 * p.slDist;
+          p.beMoved = true;
+        }
       }
     }
 

@@ -11,7 +11,10 @@
   const weekday = (z) => z.dow >= 1 && z.dow <= 5;
   const fmt = (inst, x) => SL.fmtPrice(inst.id, x);
   const rrOf = (ctx, def) => (ctx.p && ctx.p.rr) || def;
-  const rrVariants = (list) => list.map((rr) => ({ p: { rr }, label: `RR ${rr}` }));
+  // Settings versions: the take-profit distance, plus a break-even-stop version ("BE": after +1R the stop moves
+  // to +0.1R) for the wider targets
+  const withBE = (v, from = 2) => (v.p.rr >= from ? [v, { p: { ...v.p, be: 1 }, label: v.label + ' · BE' }] : [v]);
+  const rrVariants = (list, beFrom = 2) => list.flatMap((rr) => withBE({ p: { rr }, label: `RR ${rr}` }, beFrom));
   // Trading day as brokers count it: 17:00 New York to 17:00 New York
   const tradingDay = (t) => SL.zoned(t + 7 * 3600, SL.NY).date;
 
@@ -79,7 +82,7 @@
     {
       id: 'NY_ORB', name: 'NY Opening Range Breakout', short: 'NY ORB',
       symbols: ['NAS100', 'XAUUSD'], maxHoldMin: 0, rr: 2.0,
-      variants: [5, 15, 30].flatMap((orMin) => [1.5, 2, 3].map((rr) => ({ p: { orMin, rr }, label: `${orMin}-min range · RR ${rr}` }))),
+      variants: [5, 15, 30].flatMap((orMin) => [1.5, 2, 3].flatMap((rr) => withBE({ p: { orMin, rr }, label: `${orMin}-min range · RR ${rr}` }))),
       info: 'Opening range = the first 5, 15 or 30 minutes of the New York cash session (from 09:30 New York; the best length is tested per chart). Buy the first 5-min close above it / sell the first close below it, until 11:00. SL at the middle of the range, TP = 1.5R-3R. Based on the opening-range-breakout research by Zarattini & Aziz (2023).' + END,
       evaluate(ctx) {
         const orMin = (ctx.p && ctx.p.orMin) || 15;
@@ -206,7 +209,7 @@
     },
     {
       id: 'IMOM', name: 'Intraday Momentum (last 30 min)', short: 'Intraday Mom.',
-      symbols: ['NAS100'], maxHoldMin: 30, rr: 1.5, variants: rrVariants([1, 1.5, 2]),
+      symbols: ['NAS100'], maxHoldMin: 30, rr: 1.5, variants: rrVariants([1, 1.5, 2], 99),
       info: 'If the market rose from the previous 16:00 close to 10:00 New York time, buy at 15:30; if it fell, sell. Exit by 16:00 (30 min, by design), SL = 1.5 x ATR, TP = 1R-2R. Based on "Market Intraday Momentum" (Gao, Han, Li & Zhou, Journal of Financial Economics 2018).',
       evaluate(ctx) {
         const { bars, i, ind, inst } = ctx;
@@ -230,14 +233,16 @@
     },
     {
       id: 'TREND', name: 'Trend Pullback (EMA 20/50/200)', short: 'Trend PB',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 1.5, variants: rrVariants([1.5, 2, 3]),
-      info: 'Trade only with the 5-min trend (EMA20 > EMA50 > EMA200 and EMA50 rising, or the reverse). Wait for a pullback that touches EMA20, then enter when a candle closes back in the trend direction beyond the previous candle. SL behind the last swing (0.8-2.5 ATR), TP = 1.5R-3R. Active in London/New York hours only.' + END,
+      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 1.5,
+      variants: rrVariants([1.5, 2, 3]).flatMap((v) => [v, { p: { ...v.p, noLunch: true }, label: v.label + ' · no midday' }]),
+      info: 'Trade only with the 5-min trend (EMA20 > EMA50 > EMA200 and EMA50 rising, or the reverse). Wait for a pullback that touches EMA20, then enter when a candle closes back in the trend direction beyond the previous candle. SL behind the last swing (0.8-2.5 ATR), TP = 1.5R-3R. Active in London/New York hours only; one tested version also skips the quiet midday (11:00-13:00 London, 12:00-13:30 New York).' + END,
       evaluate(ctx) {
         const { bars, i, ind, inst } = ctx;
         if (i < 8) return null;
         const b = bars[i], p = bars[i - 1];
-        if (inst.id === 'NAS100') { const z = SL.zoned(b.t, SL.NY); if (!weekday(z) || z.min < 585 || z.min >= 930) return null; }
-        else { const z = SL.zoned(b.t, SL.LDN); if (!weekday(z) || z.min < 420 || z.min >= 1020) return null; }
+        const noMid = !!(ctx.p && ctx.p.noLunch); // skip the quiet midday lull
+        if (inst.id === 'NAS100') { const z = SL.zoned(b.t, SL.NY); if (!weekday(z) || z.min < 585 || z.min >= 930 || (noMid && z.min >= 720 && z.min < 810)) return null; }
+        else { const z = SL.zoned(b.t, SL.LDN); if (!weekday(z) || z.min < 420 || z.min >= 1020 || (noMid && z.min >= 660 && z.min < 780)) return null; }
         const e20 = ind.ema20[i], e50 = ind.ema50[i], e200 = ind.ema200[i], atr = ind.atr[i], rsi = ind.rsi[i];
         if (e200 == null || !atr || rsi == null || ind.ema50[i - 6] == null) return null;
         const slope = e50 - ind.ema50[i - 6];

@@ -56,7 +56,7 @@
         const l = live(p);
         return `<tr><td>${side(p.side)} <b>${label(p.sym)}</b><div class="muted small">#${p.id} ${esc(stratV(p))} · ${rr(p.rr)} · ${lots(p)} lot</div></td>
           <td class="r">${SL.fmtPrice(p.sym, p.entry)}<div class="muted small">${tLocal(p.openT)}</div></td>
-          <td class="r"><span class="neg">${SL.fmtPrice(p.sym, p.sl)}</span><div class="pos">${SL.fmtPrice(p.sym, p.tp)}</div></td>
+          <td class="r">${p.beMoved ? `<span class="pos" title="Stop moved to lock +0.1R">${SL.fmtPrice(p.sym, p.sl)} BE</span>` : `<span class="neg">${SL.fmtPrice(p.sym, p.sl)}</span>`}<div class="pos">${SL.fmtPrice(p.sym, p.tp)}</div></td>
           <td class="r ${cls(l.pnl)}"><b>${money(l.pnl)}</b><div class="small">${rf(l.r)}</div></td>
           <td class="r">${Math.round(l.openMin)}m${l.leftMin != null ? `<div class="muted small">${Math.max(0, Math.round(l.leftMin))}m left</div>` : ''}</td></tr>`;
       }).join('') + '</table>';
@@ -71,7 +71,7 @@
     }
     if (e.type === 'close') {
       const p = st.closed.find((x) => x.id === e.id); if (!p) return null;
-      const why = { TP: 'take profit hit', SL: 'stop loss hit', TIME: 'time limit reached', EOD: 'closed at the end of the trading day (16:55 New York)', MANUAL: 'closed by you', END: 'closed' }[p.reason] || p.reason;
+      const why = { TP: 'take profit hit', SL: 'stop loss hit', BE: 'break-even stop hit (locked +0.1R)', TIME: 'time limit reached', EOD: 'closed at the end of the trading day (16:55 New York)', MANUAL: 'closed by you', END: 'closed' }[p.reason] || p.reason;
       return { cls: p.pnl > 0 ? 'win' : 'loss', title: `${p.pnl > 0 ? 'WIN' : 'LOSS'} ${money(p.pnl)} (${rf(p.r)}) — #${p.id} ${label(p.sym)} ${p.side > 0 ? 'BUY' : 'SELL'}`,
         sub: `${why} @ ${SL.fmtPrice(p.sym, p.exit)} after ${dur(p.holdMin)} · balance $${p.balanceAfter.toFixed(2)}` };
     }
@@ -96,7 +96,7 @@
     if (!list.length) { $('tradesTable').innerHTML = '<div class="empty">No closed trades yet.</div>'; return; }
     $('tradesTable').innerHTML = `<table><tr><th>#</th><th>Opened</th><th>Market</th><th>Strategy</th><th>Side</th><th class="r">Entry</th><th class="r">SL</th><th class="r">TP</th><th class="r">RRR</th><th class="r">Lots</th><th class="r">Exit</th><th>Result</th><th class="r">Held</th><th class="r">P&L</th><th class="r">R</th><th class="r">Balance</th></tr>` +
       list.slice(0, 500).map((t) => `<tr><td>${t.id}</td><td>${dLocal(t.openT)}${t.late ? ' <span class="warnmark" title="Processed after the fact: the app was closed when this happened">⏱</span>' : ''}</td><td><b>${label(t.sym)}</b></td><td>${esc(stratV(t))}</td><td>${side(t.side)}</td>
-        <td class="r">${SL.fmtPrice(t.sym, t.entry)}</td><td class="r">${SL.fmtPrice(t.sym, t.sl)}</td><td class="r">${SL.fmtPrice(t.sym, t.tp)}</td><td class="r">${rr(t.rr)}</td><td class="r">${lots(t)}</td>
+        <td class="r">${SL.fmtPrice(t.sym, t.entry)}</td><td class="r">${SL.fmtPrice(t.sym, t.sl0 != null ? t.sl0 : t.sl)}</td><td class="r">${SL.fmtPrice(t.sym, t.tp)}</td><td class="r">${rr(t.rr)}</td><td class="r">${lots(t)}</td>
         <td class="r">${SL.fmtPrice(t.sym, t.exit)}</td><td><span class="tag ${t.reason}">${t.reason}</span></td><td class="r">${dur(t.holdMin)}</td>
         <td class="r ${cls(t.pnl)}"><b>${money(t.pnl)}</b></td><td class="r ${cls(t.r)}">${rf(t.r)}</td><td class="r">$${t.balanceAfter.toFixed(2)}</td></tr>`).join('') + '</table>';
   };
@@ -123,7 +123,7 @@
     </div><div class="two">
       ${groupTable('By market', SL.groupBy(tr, (t) => label(t.sym)), st.startBalance)}
       ${groupTable('By strategy', SL.groupBy(tr, (t) => SL.STRAT[t.strat] ? SL.STRAT[t.strat].name : t.strat), st.startBalance)}
-      ${groupTable('By exit', SL.groupBy(tr, (t) => ({ TP: 'Take profit', SL: 'Stop loss', TIME: 'Time limit', EOD: 'End of day (16:55 NY)', MANUAL: 'Manual', END: 'Other' }[t.reason] || t.reason)), st.startBalance)}
+      ${groupTable('By exit', SL.groupBy(tr, (t) => ({ TP: 'Take profit', SL: 'Stop loss', BE: 'Break-even stop', TIME: 'Time limit', EOD: 'End of day (16:55 NY)', MANUAL: 'Manual', END: 'Other' }[t.reason] || t.reason)), st.startBalance)}
       ${groupTable('By day (local time)', days, st.startBalance)}
     </div>`;
   };

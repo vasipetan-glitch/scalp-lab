@@ -52,7 +52,19 @@
   }
 
   const applySelection = () => SL.applySelection(app.st, app.bt);
-  function runPortfolio() { if (app.bt) app.bt.portfolio = SL.runPortfolio(app.st, app.hist5m, app.bt); }
+  function runPortfolio() { if (app.bt) app.bt.portfolio = { stats: SL.runPortfolio(app.st, app.hist5m, app.bt).stats }; }
+
+  // The full test takes several seconds, so its results are reused for 6 hours (like the cloud runner)
+  const btKey = () => JSON.stringify([SL.STRATEGIES.map((s) => s.id + ':' + (s.variants ? s.variants.length : 1)), app.st.settings.maxHoldMin, app.st.settings.newsFilter]);
+  function runTests(force) {
+    const c = app.st.btCache;
+    if (!force && c && c.bt && c.key === btKey() && SL.nowSec() - c.at < 6 * 3600) app.bt = c.bt;
+    else {
+      const nb = runBacktests();
+      if (nb) { app.bt = nb; app.st.btCache = { at: SL.nowSec(), key: btKey(), bt: nb }; }
+    }
+    applySelection(); runPortfolio();
+  }
 
   async function loadHistory() {
     for (const sym of SL.SYMBOLS) {
@@ -63,7 +75,7 @@
 
   async function refreshBacktest() {
     await loadHistory();
-    app.bt = runBacktests(); applySelection(); runPortfolio(); save(); renderAll();
+    runTests(true); save(); renderAll();
   }
 
   // ---------- live data ----------
@@ -201,7 +213,7 @@
     const iso = (t) => new Date(t * 1000).toISOString().replace('T', ' ').slice(0, 19);
     const head = ['id', 'opened_utc', 'closed_utc', 'market', 'strategy', 'side', 'entry', 'stop_loss', 'take_profit', 'rrr', 'lots', 'exit', 'result', 'held_min', 'pnl_usd', 'r_multiple', 'balance_after', 'note'];
     const rows = list.map((t) => [t.id, iso(t.openT), iso(t.closeT), F.label(t.sym), SL.STRAT[t.strat].name, t.side > 0 ? 'BUY' : 'SELL',
-      SL.fmtPrice(t.sym, t.entry), SL.fmtPrice(t.sym, t.sl), SL.fmtPrice(t.sym, t.tp), t.rr.toFixed(2), t.lots.toFixed(3), SL.fmtPrice(t.sym, t.exit),
+      SL.fmtPrice(t.sym, t.entry), SL.fmtPrice(t.sym, t.sl0 != null ? t.sl0 : t.sl), SL.fmtPrice(t.sym, t.tp), t.rr.toFixed(2), t.lots.toFixed(3), SL.fmtPrice(t.sym, t.exit),
       t.reason, t.holdMin.toFixed(1), t.pnl.toFixed(2), t.r.toFixed(2), t.balanceAfter.toFixed(2), t.note || ''].map(csvCell).join(','));
     return head.join(',') + '\n' + rows.join('\n') + '\n';
   }
@@ -212,7 +224,7 @@
       `**Today:** ${s.n} trades, ${s.wins} wins / ${s.losses} losses, win rate ${s.winRate.toFixed(1)}%, net ${F.money(s.net)}`,
       `**All time:** ${all.n} trades, win rate ${all.winRate.toFixed(1)}%, net ${F.money(all.net)}, balance $${st.balance.toFixed(2)} (started $${st.startBalance.toFixed(2)})`, '',
       '| # | Time | Market | Strategy | Side | Entry | SL | TP | RRR | Result | P&L | R |', '|---|---|---|---|---|---|---|---|---|---|---|---|'];
-    for (const t of list) lines.push(`| ${t.id} | ${F.tLocal(t.openT)}-${F.tLocal(t.closeT)} | ${F.label(t.sym)} | ${F.strat(t.strat)} | ${t.side > 0 ? 'BUY' : 'SELL'} | ${SL.fmtPrice(t.sym, t.entry)} | ${SL.fmtPrice(t.sym, t.sl)} | ${SL.fmtPrice(t.sym, t.tp)} | ${F.rr(t.rr)} | ${t.reason} | ${F.money(t.pnl)} | ${F.rf(t.r)} |`);
+    for (const t of list) lines.push(`| ${t.id} | ${F.tLocal(t.openT)}-${F.tLocal(t.closeT)} | ${F.label(t.sym)} | ${F.strat(t.strat)} | ${t.side > 0 ? 'BUY' : 'SELL'} | ${SL.fmtPrice(t.sym, t.entry)} | ${SL.fmtPrice(t.sym, t.sl0 != null ? t.sl0 : t.sl)} | ${SL.fmtPrice(t.sym, t.tp)} | ${F.rr(t.rr)} | ${t.reason} | ${F.money(t.pnl)} | ${F.rf(t.r)} |`);
     return lines.join('\n').replace(/−/g, '-') + '\n';
   }
   let repT = null;
@@ -366,7 +378,7 @@
   function onSaveSettings(s) {
     const prev = app.st.settings, retest = s.maxHoldMin !== prev.maxHoldMin || s.newsFilter !== prev.newsFilter;
     Object.assign(app.st.settings, s);
-    if (retest) { app.bt = runBacktests(); applySelection(); } // these rules change every strategy's results
+    if (retest) runTests(true); // these rules change every strategy's results
     runPortfolio(); save(); statusBanner(); renderAll();
   }
   async function onReset() {
@@ -445,7 +457,7 @@
     ui.renderStatus(app.feed);
     await loadNews();
     await loadHistory();
-    app.bt = runBacktests(); applySelection(); runPortfolio();
+    runTests(false); // reuses test results younger than 6 hours
     await startLive();
     statusBanner();
     renderAll();
