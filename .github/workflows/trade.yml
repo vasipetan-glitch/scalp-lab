@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 9
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,5 +52,17 @@ jobs:
         with:
           path: site
 
+      # Publishing sometimes fails because GitHub needs a moment to see the page package it just built.
+      # Trading and saving the account already happened above, so: wait and retry once, and never fail the run.
       - id: deploy
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Wait before retrying the publish
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 20
+
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
