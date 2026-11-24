@@ -240,13 +240,13 @@
   function livePos(p) {
     const f = app.feed[p.sym] || {};
     const mid = f.price || p.entry, exit = mid - (p.side * SL.INSTRUMENTS[p.sym].spread) / 2;
-    const pnl = (exit - p.entry) * p.side * p.units;
+    const unreal = (exit - p.entry) * p.side * p.units, pnl = unreal + (p.realized || 0); // + half already banked
     const dataNow = f.lastBar ? f.lastBar + 60 : SL.nowSec();
     const openMin = Math.max(0, (dataNow - p.openT) / 60);
-    return { pnl, r: pnl / p.risk, openMin, leftMin: p.maxHoldMin > 0 ? p.maxHoldMin - openMin : null };
+    return { pnl, unreal, r: pnl / p.risk, openMin, leftMin: p.maxHoldMin > 0 ? p.maxHoldMin - openMin : null };
   }
   function equity() {
-    const openPnl = app.st.open.reduce((a, p) => a + livePos(p).pnl, 0);
+    const openPnl = app.st.open.reduce((a, p) => a + livePos(p).unreal, 0); // banked halves are already in the balance
     return { openPnl, equity: app.st.balance + openPnl };
   }
 
@@ -447,7 +447,7 @@
     app.notify = ls.get('scalplab.notify') === '1';
     setNotifyButton();
     if (new URLSearchParams(location.search).has('viewer') || !(await localServer())) return initViewer();
-    banner('Loading ~60 days of market history and testing every strategy… (first start takes a few seconds)');
+    banner('Loading ~60 days of market history and testing every strategy… (after an update this can take up to a minute; later starts are quick)');
     let st = await loadState();
     if (!st || !st.version) st = SL.newAccount(100);
     st.settings = Object.assign(SL.defaultSettings(), st.settings || {});

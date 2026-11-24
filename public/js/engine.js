@@ -96,7 +96,7 @@
         try { sig = strat.evaluate(ctx); } catch (e) { console.error(strat.id, e); }
         if (!sig || !(sig.slDist > 0) || !(sig.tpDist > 0)) continue;
         const pr = a.pr || 0;
-        if (pr > bestPr) { bestPr = pr; best = { ...sig, strat: strat.id, variant: a.label || '', be: (a.p && a.p.be) || 0, maxHoldMin: strat.maxHoldMin || 0, sigT: b.t + 300 }; }
+        if (pr > bestPr) { bestPr = pr; best = { ...sig, strat: strat.id, variant: a.label || '', be: (a.p && a.p.be) || 0, lock: (a.p && a.p.lock) || 0, halfTP: (a.p && a.p.halfTP) || 0, maxHoldMin: strat.maxHoldMin || 0, sigT: b.t + 300 }; }
       }
       if (best) this.st.pending[sym] = best;
     }
@@ -161,6 +161,8 @@
         id: st.nextId++, sym, strat: sig.strat, variant: sig.variant || '', side, openT: t, entry,
         sl: entry - side * sig.slDist, sl0: entry - side * sig.slDist, tp: entry + side * sig.tpDist,
         be: sig.be || 0, beMoved: false, // break-even stop: after be x R in profit, the stop moves to +0.1R
+        lock: sig.lock || 0, lockMoved: false, // lock: after +1.5R the stop moves to +0.5R
+        halfTP: sig.halfTP || 0, partDone: false, realized: 0, // half at 1R: close half at +1R, the rest runs
         slDist: sig.slDist, tpDist: sig.tpDist, rr: sig.tpDist / sig.slDist,
         units, lots, belowMinLot: lots < inst.minLot, risk, margin,
         maxHoldMin: hold, note: sig.note,
@@ -200,29 +202,44 @@
           exit = bar.c - p.side * half; reason = 'TIME'; ct = bar.t + base;
         }
         if (exit != null) {
+          // Reaching TP means +1R was passed on the way: the half-at-1R version banked half there first
+          if (reason === 'TP' && p.halfTP && !p.partDone) this._partial(p, p.entry + p.side * p.slDist, ct);
           if (reason === 'SL' && p.beMoved) reason = 'BE';
           this._close(p, exit, ct, reason);
           continue;
         }
-        // Break-even stop: once a finished candle has reached be x R of profit, lock +0.1R from the next candle on
-        // (checked after the exits above, so within one candle the original stop always counts first)
-        if (p.be > 0 && !p.beMoved && (p.side > 0 ? hi >= p.entry + p.be * p.slDist : lo <= p.entry - p.be * p.slDist)) {
-          p.sl = p.entry + p.side * 0.1 * p.slDist;
-          p.beMoved = true;
+        // Everything below is checked after the exits above, so within one candle the original stop counts first
+        const fav = (r) => (p.side > 0 ? hi >= p.entry + r * p.slDist : lo <= p.entry - r * p.slDist);
+        // Half at 1R: close half (like a limit order at +1R); the rest keeps running with its stop at +0.1R
+        if (p.halfTP && !p.partDone && fav(1)) {
+          this._partial(p, p.entry + p.side * p.slDist, bar.t + base / 2);
+          p.sl = p.entry + p.side * 0.1 * p.slDist; p.beMoved = true;
         }
+        // Lock / break-even stops, active from the next candle on
+        if (p.lock && !p.lockMoved && fav(1.5)) { p.sl = p.entry + p.side * 0.5 * p.slDist; p.lockMoved = true; p.beMoved = true; }
+        else if (p.be > 0 && !p.beMoved && fav(p.be)) { p.sl = p.entry + p.side * 0.1 * p.slDist; p.beMoved = true; }
       }
     }
 
     _close(p, exit, t, reason) {
       const st = this.st;
       const closeT = Math.max(t, p.openT);
-      const pnl = (exit - p.entry) * p.side * p.units;
-      st.balance += pnl;
+      const rest = (exit - p.entry) * p.side * p.units; // what is left of the position
+      st.balance += rest;
+      const pnl = rest + (p.realized || 0); // plus the half already banked (half-at-1R version)
       st.open = st.open.filter((x) => x.id !== p.id);
       const tr = { ...p, exit, closeT, reason, pnl, r: pnl / p.risk, balanceAfter: st.balance, holdMin: (closeT - p.openT) / 60 };
       st.closed.push(tr);
       st.cooldown[p.sym] = closeT + 600;
       this._event({ type: 'close', t: closeT, sym: p.sym, trade: tr });
+    }
+
+    // Close half of a position at `price` (an exit-side price) and keep the rest running
+    _partial(p, price, t) {
+      const u = p.units / 2, pnl = (price - p.entry) * p.side * u;
+      p.units -= u; p.margin /= 2; p.realized = (p.realized || 0) + pnl; p.partDone = true;
+      this.st.balance += pnl;
+      this._event({ type: 'partial', t: Math.max(t, p.openT), sym: p.sym, id: p.id, pnl });
     }
 
     forceClose(id, mid, t, reason) {

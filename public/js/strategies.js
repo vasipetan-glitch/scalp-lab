@@ -11,10 +11,15 @@
   const weekday = (z) => z.dow >= 1 && z.dow <= 5;
   const fmt = (inst, x) => SL.fmtPrice(inst.id, x);
   const rrOf = (ctx, def) => (ctx.p && ctx.p.rr) || def;
-  // Settings versions: the take-profit distance, plus a break-even-stop version ("BE": after +1R the stop moves
-  // to +0.1R) for the wider targets
-  const withBE = (v, from = 2) => (v.p.rr >= from ? [v, { p: { ...v.p, be: 1 }, label: v.label + ' · BE' }] : [v]);
-  const rrVariants = (list, beFrom = 2) => list.flatMap((rr) => withBE({ p: { rr }, label: `RR ${rr}` }, beFrom));
+  // Settings versions: the take-profit distance, and for the wider targets three ways to protect profit:
+  //   BE   - after +1R the stop moves to +0.1R
+  //   Lock - like BE, and after +1.5R the stop moves to +0.5R
+  //   Half - after +1R half the position is closed; the rest runs to TP with its stop at +0.1R
+  const withExits = (v, from = 2) => (v.p.rr >= from ? [v,
+    { p: { ...v.p, be: 1 }, label: v.label + ' · BE' },
+    { p: { ...v.p, be: 1, lock: 1 }, label: v.label + ' · Lock' },
+    { p: { ...v.p, halfTP: 1 }, label: v.label + ' · Half at 1R' }] : [v]);
+  const rrVariants = (list, beFrom = 2) => list.flatMap((rr) => withExits({ p: { rr }, label: `RR ${rr}` }, beFrom));
   // Trading day as brokers count it: 17:00 New York to 17:00 New York
   const tradingDay = (t) => SL.zoned(t + 7 * 3600, SL.NY).date;
 
@@ -82,7 +87,7 @@
     {
       id: 'NY_ORB', name: 'NY Opening Range Breakout', short: 'NY ORB',
       symbols: ['NAS100', 'XAUUSD'], maxHoldMin: 0, rr: 2.0,
-      variants: [5, 15, 30].flatMap((orMin) => [1.5, 2, 3].flatMap((rr) => withBE({ p: { orMin, rr }, label: `${orMin}-min range · RR ${rr}` }))),
+      variants: [5, 15, 30].flatMap((orMin) => [1.5, 2, 3].flatMap((rr) => withExits({ p: { orMin, rr }, label: `${orMin}-min range · RR ${rr}` }))),
       info: 'Opening range = the first 5, 15 or 30 minutes of the New York cash session (from 09:30 New York; the best length is tested per chart). Buy the first 5-min close above it / sell the first close below it, until 11:00. SL at the middle of the range, TP = 1.5R-3R. Based on the opening-range-breakout research by Zarattini & Aziz (2023).' + END,
       evaluate(ctx) {
         const orMin = (ctx.p && ctx.p.orMin) || 15;

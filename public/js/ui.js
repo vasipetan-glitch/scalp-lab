@@ -54,7 +54,7 @@
     $('positions').innerHTML = `<table><tr><th>Trade</th><th class="r">Entry</th><th class="r">SL / TP</th><th class="r">P&L</th><th class="r">Open</th></tr>` +
       st.open.map((p) => {
         const l = live(p);
-        return `<tr><td>${side(p.side)} <b>${label(p.sym)}</b><div class="muted small">#${p.id} ${esc(stratV(p))} · ${rr(p.rr)} · ${lots(p)} lot</div></td>
+        return `<tr><td>${side(p.side)} <b>${label(p.sym)}</b><div class="muted small">#${p.id} ${esc(stratV(p))} · ${rr(p.rr)} · ${lots(p)} lot${p.partDone ? ' · ½ taken' : ''}</div></td>
           <td class="r">${SL.fmtPrice(p.sym, p.entry)}<div class="muted small">${tLocal(p.openT)}</div></td>
           <td class="r">${p.beMoved ? `<span class="pos" title="Stop moved to lock +0.1R">${SL.fmtPrice(p.sym, p.sl)} BE</span>` : `<span class="neg">${SL.fmtPrice(p.sym, p.sl)}</span>`}<div class="pos">${SL.fmtPrice(p.sym, p.tp)}</div></td>
           <td class="r ${cls(l.pnl)}"><b>${money(l.pnl)}</b><div class="small">${rf(l.r)}</div></td>
@@ -74,6 +74,10 @@
       const why = { TP: 'take profit hit', SL: 'stop loss hit', BE: 'break-even stop hit (locked +0.1R)', TIME: 'time limit reached', EOD: 'closed at the end of the trading day (16:55 New York)', MANUAL: 'closed by you', END: 'closed' }[p.reason] || p.reason;
       return { cls: p.pnl > 0 ? 'win' : 'loss', title: `${p.pnl > 0 ? 'WIN' : 'LOSS'} ${money(p.pnl)} (${rf(p.r)}) — #${p.id} ${label(p.sym)} ${p.side > 0 ? 'BUY' : 'SELL'}`,
         sub: `${why} @ ${SL.fmtPrice(p.sym, p.exit)} after ${dur(p.holdMin)} · balance $${p.balanceAfter.toFixed(2)}` };
+    }
+    if (e.type === 'partial') {
+      const p = find(e.id); if (!p) return null;
+      return { cls: 'win', title: `HALF PROFIT ${money(e.pnl)} — #${e.id} ${label(e.sym)} reached 1:1`, sub: 'Half the position closed at +1R; the rest runs to TP with its stop at +0.1R' };
     }
     if (e.type === 'skip' || e.type === 'info') return { cls: 'skip', title: esc(e.msg), sub: '' };
     return null;
