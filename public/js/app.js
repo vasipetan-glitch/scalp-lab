@@ -55,7 +55,8 @@
   function runPortfolio() { if (app.bt) app.bt.portfolio = { stats: SL.runPortfolio(app.st, app.hist5m, app.bt).stats }; }
 
   // The full test takes several seconds, so its results are reused for 6 hours (like the cloud runner)
-  const btKey = () => JSON.stringify([SL.STRATEGIES.map((s) => s.id + ':' + (s.variants ? s.variants.length : 1)), app.st.settings.maxHoldMin, app.st.settings.newsFilter]);
+  // Anything that changes the test results must be in this key (charts, strategies, their versions, rules)
+  const btKey = () => JSON.stringify([SL.SYMBOLS, SL.STRATEGIES.map((s) => s.id + ':' + (s.variants ? s.variants.length : 1) + ':' + s.symbols.join(',')), app.st.settings.maxHoldMin, app.st.settings.newsFilter]);
   function runTests(force) {
     const c = app.st.btCache;
     if (!force && c && c.bt && c.key === btKey() && SL.nowSec() - c.at < 6 * 3600) app.bt = c.bt;
@@ -240,7 +241,7 @@
   function livePos(p) {
     const f = app.feed[p.sym] || {};
     const mid = f.price || p.entry, exit = mid - (p.side * SL.INSTRUMENTS[p.sym].spread) / 2;
-    const unreal = (exit - p.entry) * p.side * p.units, pnl = unreal + (p.realized || 0); // + half already banked
+    const unreal = (exit - p.entry) * p.side * p.units * (p.qUsd || 1), pnl = unreal + (p.realized || 0); // + half already banked
     const dataNow = f.lastBar ? f.lastBar + 60 : SL.nowSec();
     const openMin = Math.max(0, (dataNow - p.openT) / 60);
     return { pnl, unreal, r: pnl / p.risk, openMin, leftMin: p.maxHoldMin > 0 ? p.maxHoldMin - openMin : null };

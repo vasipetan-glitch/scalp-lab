@@ -11,10 +11,10 @@
 
   // ---------- news filter ----------
   // High-impact events that move each market; no new trades from 30 min before to 15 min after.
-  SL.NEWS_CCY = { EURUSD: ['USD', 'EUR'], XAUUSD: ['USD'], NAS100: ['USD'] };
+  SL.NEWS_CCY = { EURUSD: ['USD', 'EUR'], GBPUSD: ['USD', 'GBP'], USDJPY: ['USD', 'JPY'], GBPJPY: ['GBP', 'JPY'], XAUUSD: ['USD'], NAS100: ['USD'] };
   SL.NEWS_BEFORE = 1800; SL.NEWS_AFTER = 900;
   SL.parseNews = (arr) => (Array.isArray(arr) ? arr : [])
-    .filter((e) => e.impact === 'High' && (e.country === 'USD' || e.country === 'EUR'))
+    .filter((e) => e.impact === 'High' && ['USD', 'EUR', 'GBP', 'JPY'].includes(e.country))
     .map((e) => ({ t: Math.floor(Date.parse(e.date) / 1000), c: e.country, title: String(e.title || '') }))
     .filter((e) => isFinite(e.t));
   SL.mergeNews = (old, add, now) => {
@@ -118,6 +118,7 @@
     _canTrade(sym, t) {
       const st = this.st, set = st.settings;
       if (set.paused || st.pending[sym] || st.open.some((p) => p.sym === sym)) return false;
+      if (set.maxOpen > 0 && st.open.length + Object.keys(st.pending).length >= set.maxOpen) return false; // optional cap on open trades
       if (st.cooldown[sym] && t < st.cooldown[sym]) return false;
       const z = SL.zoned(t, SL.NY);
       // Weekend, Friday close, and 15:55-18:15 New York: with a 60-min limit every trade is closed
@@ -146,8 +147,9 @@
       const entry = mid + side * inst.spread / 2;
       const risk = st.balance * st.settings.riskPct / 100;
       if (!(risk > 0)) return;
-      const units = risk / sig.slDist;
-      const margin = units * entry / inst.leverage;
+      const qUsd = this._qUsd(sym, entry); // dollars per 1.0 price move per unit (1 for dollar-quoted markets)
+      const units = risk / (sig.slDist * qUsd);
+      const margin = units * entry * qUsd / inst.leverage;
       const used = st.open.reduce((a, p) => a + p.margin, 0);
       const label = `${inst.label} ${side > 0 ? 'BUY' : 'SELL'} (${SL.STRAT[sig.strat].short})`;
       if (margin > st.balance - used) {
@@ -158,7 +160,7 @@
       const caps = [sig.maxHoldMin, st.settings.maxHoldMin].filter((x) => x > 0);
       const hold = caps.length ? Math.min(...caps) : 0; // 0 = no time limit
       const pos = {
-        id: st.nextId++, sym, strat: sig.strat, variant: sig.variant || '', side, openT: t, entry,
+        id: st.nextId++, sym, strat: sig.strat, variant: sig.variant || '', side, openT: t, entry, qUsd,
         sl: entry - side * sig.slDist, sl0: entry - side * sig.slDist, tp: entry + side * sig.tpDist,
         be: sig.be || 0, beMoved: false, // break-even stop: after be x R in profit, the stop moves to +0.1R
         lock: sig.lock || 0, lockMoved: false, // lock: after +1.5R the stop moves to +0.5R
@@ -224,7 +226,7 @@
     _close(p, exit, t, reason) {
       const st = this.st;
       const closeT = Math.max(t, p.openT);
-      const rest = (exit - p.entry) * p.side * p.units; // what is left of the position
+      const rest = (exit - p.entry) * p.side * p.units * (p.qUsd || 1); // what is left of the position, in dollars
       st.balance += rest;
       const pnl = rest + (p.realized || 0); // plus the half already banked (half-at-1R version)
       st.open = st.open.filter((x) => x.id !== p.id);
@@ -234,9 +236,16 @@
       this._event({ type: 'close', t: closeT, sym: p.sym, trade: tr });
     }
 
+    // Dollars per 1.0 price move per unit: 1 for dollar-quoted markets; yen pairs are converted at the USD/JPY rate
+    _qUsd(sym, price) {
+      if (SL.INSTRUMENTS[sym].quote !== 'JPY') return 1;
+      const S = this.S.USDJPY, uj = sym === 'USDJPY' ? price : S && S.bars.length ? S.bars[S.bars.length - 1].c : null;
+      return 1 / (uj || 155); // fallback only when USD/JPY prices are not loaded (single-chart tests)
+    }
+
     // Close half of a position at `price` (an exit-side price) and keep the rest running
     _partial(p, price, t) {
-      const u = p.units / 2, pnl = (price - p.entry) * p.side * u;
+      const u = p.units / 2, pnl = (price - p.entry) * p.side * u * (p.qUsd || 1);
       p.units -= u; p.margin /= 2; p.realized = (p.realized || 0) + pnl; p.partDone = true;
       this.st.balance += pnl;
       this._event({ type: 'partial', t: Math.max(t, p.openT), sym: p.sym, id: p.id, pnl });

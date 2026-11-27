@@ -80,7 +80,8 @@
   }
 
   // Session open used by the noise-area strategy
-  const NOISE_OPEN = { EURUSD: [SL.LDN, 420], XAUUSD: [SL.NY, 500], NAS100: [SL.NY, 570] };
+  const NOISE_OPEN = { EURUSD: [SL.LDN, 420], GBPUSD: [SL.LDN, 420], USDJPY: [SL.LDN, 420], GBPJPY: [SL.LDN, 420], XAUUSD: [SL.NY, 500], NAS100: [SL.NY, 570] };
+  const FX = ['EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY'];
   const END = ' Runs until TP or SL (closed at 16:55 New York at the latest).';
 
   const STRATEGIES = [
@@ -99,19 +100,19 @@
     },
     {
       id: 'LDN_BO', name: 'London Breakout (Asian range)', short: 'London BO',
-      symbols: ['EURUSD', 'XAUUSD'], maxHoldMin: 0, rr: 1.5, variants: rrVariants([1, 1.5, 2, 3]),
+      symbols: [...FX, 'XAUUSD'], maxHoldMin: 0, rr: 1.5, variants: rrVariants([1, 1.5, 2, 3]),
       info: 'Range = Asian session 00:00-07:00 London time. Trade the first 5-min close outside that range between 07:00 and 10:00 London. SL at the middle of the range, TP = 1R-3R (tested per chart). Ranges that are too small or too wide are skipped.' + END,
       evaluate(ctx) {
         return rangeBreakout(ctx, {
           id: this.id, tz: SL.LDN, rangeName: 'Asian range', rangeFrom: 0, rangeTo: 420, minBars: 70,
           entryFrom: 420, entryTo: 600, maxChase: 0.8, minAtr: 1.0, rr: rrOf(ctx, this.rr),
-          rangeLimits: { EURUSD: [0.0012, 0.0060], XAUUSD: [6, 45] },
+          rangeLimits: { EURUSD: [0.0012, 0.0060], GBPUSD: [0.0015, 0.0080], USDJPY: [0.15, 1.0], GBPJPY: [0.25, 1.6], XAUUSD: [6, 45] },
         });
       },
     },
     {
       id: 'NOISE', name: 'Intraday Momentum (noise area)', short: 'Noise Mom.',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
+      symbols: [...FX, 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
       info: 'All day. Measures how far price normally moves away from the session open at each time of day (average of the last 14 days). Every 30 minutes, if price is clearly outside that normal "noise area", it trades in the breakout direction. One trade a day per chart. SL just inside the noise area (0.8-2.5 ATR), TP = 1.5R-3R. Based on "Beat the Market: An Effective Intraday Momentum Strategy" (Zarattini, Aziz & Barbon, 2024).' + END,
       evaluate(ctx) {
         const { bars, i, ind, inst } = ctx;
@@ -147,7 +148,7 @@
     },
     {
       id: 'SWEEP', name: 'Liquidity Sweep Reversal', short: 'Sweep Rev.',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
+      symbols: [...FX, 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
       info: "All day, pure price action. When price pokes just beyond yesterday's high (or low), triggering the stop orders resting there, and the candle then closes back inside with a strong body, trade the reversal. SL beyond the sweep (0.8-2.5 ATR), TP = 1.5R-3R. One trade a day per chart." + END,
       evaluate(ctx) {
         const { bars, i, ind, inst } = ctx;
@@ -188,7 +189,7 @@
     },
     {
       id: 'SQUEEZE', name: 'Volatility Squeeze Breakout', short: 'Squeeze BO',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
+      symbols: [...FX, 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 2.0, variants: rrVariants([1.5, 2, 3]),
       info: 'All day. After a very quiet period (Bollinger Bands among the narrowest 20% of the last 10 hours), trade a strong breakout candle that closes outside the band in the direction of the bigger trend (EMA200). SL at the middle band (0.8-2.5 ATR), TP = 1.5R-3R.' + END,
       evaluate(ctx) {
         const { bars, i, ind, inst } = ctx;
@@ -238,7 +239,7 @@
     },
     {
       id: 'TREND', name: 'Trend Pullback (EMA 20/50/200)', short: 'Trend PB',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 1.5,
+      symbols: [...FX, 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: 1.5,
       variants: rrVariants([1.5, 2, 3]).flatMap((v) => [v, { p: { ...v.p, noLunch: true }, label: v.label + ' · no midday' }]),
       info: 'Trade only with the 5-min trend (EMA20 > EMA50 > EMA200 and EMA50 rising, or the reverse). Wait for a pullback that touches EMA20, then enter when a candle closes back in the trend direction beyond the previous candle. SL behind the last swing (0.8-2.5 ATR), TP = 1.5R-3R. Active in London/New York hours only; one tested version also skips the quiet midday (11:00-13:00 London, 12:00-13:30 New York).' + END,
       evaluate(ctx) {
@@ -270,7 +271,7 @@
     },
     {
       id: 'MR', name: 'Bollinger Mean Reversion', short: 'Mean Rev.',
-      symbols: ['EURUSD', 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: null,
+      symbols: [...FX, 'XAUUSD', 'NAS100'], maxHoldMin: 0, rr: null,
       variants: [20, 25, 30].map((adx) => ({ p: { adx }, label: `ADX max ${adx}` })),
       info: 'Only in quiet, non-trending markets (ADX below 20, 25 or 30 - tested per chart). After a candle closes outside the Bollinger Band (20, 2) with RSI extreme, enter when price closes back inside. TP = the middle band (RRR varies, 0.8-2.0), SL beyond the extreme (0.7-2 ATR). Skips the London and New York opening rush.' + END,
       evaluate(ctx) {

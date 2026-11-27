@@ -21,7 +21,7 @@ $Reports = Join-Path $Data 'reports'
 foreach ($d in @($Data, $Cache, $Reports)) { if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d | Out-Null } }
 
 $UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
-$AllowedSymbols   = @('EURUSD=X', 'GC=F', 'NQ=F')
+$AllowedSymbols   = @('EURUSD=X', 'GC=F', 'NQ=F', 'GBPUSD=X', 'USDJPY=X', 'GBPJPY=X')
 $AllowedIntervals = @('1m', '5m')
 $AllowedRanges    = @('1d', '2d', '5d', '60d')
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false

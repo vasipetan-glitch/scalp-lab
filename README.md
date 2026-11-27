@@ -1,7 +1,9 @@
 # Scalp Lab — demo trading (paper money only)
 
-A personal dashboard that **automatically takes simulated short-term trades** on **EUR/USD, XAU/USD and
-NAS100**, starting with **$100 of virtual money**, and reports every trade in real time.
+A personal dashboard that **automatically takes simulated short-term trades** on **EUR/USD, GBP/USD,
+USD/JPY, GBP/JPY, XAU/USD and NAS100**, starting with **$100 of virtual money**, and reports every trade in
+real time. (Forex prices are near real time; gold and NAS100 use futures data that is ~10 minutes late.
+Yen pairs are converted to dollars at the USD/JPY rate.)
 There is no broker connection and no real money anywhere.
 
 ## Start it (PC version)
@@ -55,6 +57,11 @@ Per-chart picks on 24 Nov 2026 (129 backtests; the current picks are always in t
 | EUR/USD | London Breakout (RR 2 · BE) + Intraday Momentum – noise area (RR 3 · BE) |
 | XAU/USD | London Breakout (RR 1.5) + NY Opening Range Breakout (15-min range · RR 3 · BE) |
 | NAS100 | NY Opening Range Breakout (15-min range · RR 3 · BE) + Trend Pullback (RR 3 · BE) |
+
+Added on 27 Nov 2026: **GBP/USD** (Noise Momentum passed), **USD/JPY** (Mean Reversion passed) and
+**GBP/JPY** (nothing passed yet, so it doesn't trade). With all 6 charts the backtest made more ($100 → ~$187
+vs ~$170 with 3 charts) but the biggest drop nearly doubled (~22% vs ~13%), because the dollar pairs tend to
+lose together. Kept for the demo to learn how the new pairs behave live.
 
 Same data, old way vs new way (break-even versions + win-rate-aware choice):
 

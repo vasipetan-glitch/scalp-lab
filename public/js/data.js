@@ -7,6 +7,10 @@
     EURUSD: { id: 'EURUSD', label: 'EUR/USD', yahoo: 'EURUSD=X', digits: 5, spread: 0.00008, lotUnits: 100000, minLot: 0.01, leverage: 30, unitName: 'units', feedNote: 'spot FX (near real time)' },
     XAUUSD: { id: 'XAUUSD', label: 'XAU/USD', yahoo: 'GC=F', digits: 2, spread: 0.30, lotUnits: 100, minLot: 0.01, leverage: 20, unitName: 'oz', feedNote: 'COMEX gold futures as proxy for spot' },
     NAS100: { id: 'NAS100', label: 'NAS100', yahoo: 'NQ=F', digits: 1, spread: 1.5, lotUnits: 1, minLot: 0.1, leverage: 20, unitName: '$/pt', feedNote: 'E-mini Nasdaq-100 futures as proxy' },
+    GBPUSD: { id: 'GBPUSD', label: 'GBP/USD', yahoo: 'GBPUSD=X', digits: 5, spread: 0.00012, lotUnits: 100000, minLot: 0.01, leverage: 30, unitName: 'units', feedNote: 'spot FX (near real time)' },
+    // Yen pairs: profit is in yen and gets converted to dollars at the USD/JPY rate (quote: 'JPY')
+    USDJPY: { id: 'USDJPY', label: 'USD/JPY', yahoo: 'USDJPY=X', digits: 3, spread: 0.010, lotUnits: 100000, minLot: 0.01, leverage: 30, unitName: 'units', quote: 'JPY', feedNote: 'spot FX (near real time)' },
+    GBPJPY: { id: 'GBPJPY', label: 'GBP/JPY', yahoo: 'GBPJPY=X', digits: 3, spread: 0.020, lotUnits: 100000, minLot: 0.01, leverage: 30, unitName: 'units', quote: 'JPY', feedNote: 'spot FX (near real time)' },
   };
   SL.SYMBOLS = Object.keys(SL.INSTRUMENTS);
 

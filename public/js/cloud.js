@@ -26,7 +26,7 @@
 
     // 1) History: 60 days when the backtest is due (every 6 h or after a settings change), else 5 days
     const s = st.settings;
-    const settingsKey = JSON.stringify([s.mode, s.riskPct, s.dailyLossPct, s.maxTradesPerDay, s.custom, s.maxHoldMin, s.newsFilter]);
+    const settingsKey = JSON.stringify([SL.SYMBOLS, SL.STRATEGIES.map((x) => x.id + ':' + (x.variants ? x.variants.length : 1) + ':' + x.symbols.join(',')), s.mode, s.riskPct, s.dailyLossPct, s.maxTradesPerDay, s.custom, s.maxHoldMin, s.newsFilter]);
     let bt = opts.backtest && opts.backtest.combos ? opts.backtest : null;
     const btDue = !bt || now - bt.at > 6 * 3600 || bt.settingsKey !== settingsKey;
     const hist = {};
